@@ -1,0 +1,176 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<title>Project V: Virtual Memory</title>
+
+<h1>Project V: Virtual Memory</h1>
+
+<dir>
+<li> <a href=faq.html>Frequently Asked Questions</a>
+</dir>
+
+The goals of this project are:
+<dir>
+<li> to demonstrate mastery of virtual memory concept.
+<li> to learn the code mechanics of operating system fault handlers.
+<li> to develop skills in quantitative system evaluation.
+<li> to gain further experience in writing short technical reports.
+</dir>
+<p>
+<b>This project may be completed in either pairs or singletons.
+Submit your project to only one dropbox, and clearly indicate
+in your lab report the members of your group.  Both members
+of the group will receive the same grade.</b>
+<p>
+
+<h2>Project Overview</h2>
+
+In this project, you will build a simple but fully functional demand paged virtual memory.
+Although virtual memory is normally implemented in the operating system kernel,
+it can also be implemented at the user level.  This is exactly the technique used by
+modern virtual machines, so you will be learning an
+advanced technique without having the headache of writing kernel-level code.
+The following figure gives an overview of the components:
+<center>
+<a href=vm1.gif><img border=0 src=vm1.small.jpg></a>
+</center>
+We will provide you with code that implements a "virtual" page table and a "virtual" disk.
+The virtual page table will create a small virtual and physical memory, along with
+methods for updating the page table entries and protection bits.  When an application uses
+the virtual memory, it will result in page faults that call a custom handler.
+Most of your job is to implement a page fault handler that will trap page faults
+and identify the correct course of action, which generally means updating the page table,
+and moving data back and forth between the disk and physical memory.
+<p>
+Once your system is working correctly, you will evaluate the performance of
+several page replacement algorithms on a selection of simple programs across a range of memory sizes.
+You will write a short lab report that explains the experiments, describes your results,
+and draws conclusions about the behavior of each algorithm.
+
+<h2>Getting Started</h2>
+
+Begin by downloading the <a href=source>source code</a> and building it.
+Look through <a href=source/main.c>source/main.c</a> and notice that the program simply creates
+a virtual disk and page table, and then attempts to run one of our three "programs"
+using the virtual memory.  Because no mapping has been made between virtual and
+physical memory, a page fault happens immediately:
+
+<pre>
+% ./virtmem 100 10 rand sort
+page fault on page #0
+</pre>
+
+The program exits because the page fault handler isn't written yet.  That is your job!
+<p>
+Try this as a getting started exercise.  If you run the program with an equal number of
+pages and frames, then we don't actually need a disk.  Instead, you can simply make
+page N map directly to frame N, and do nothing else.  So, modify the page fault handler
+to do exactly that:
+
+<pre>
+page_table_set_entry(pt,page,page,PROT_READ|PROT_WRITE);
+</pre>
+
+With that page fault handler, all of the example programs will run, cause a number of page faults,
+but then run to completion.  Congratulations, you have written your first fault handler.
+Of course, when there are fewer frames than pages, then this simple scheme will not do.
+Instead, we must keep recently used pages in the physical memory, other pages on disk,
+and update the page table appropriately as they move back and forth.
+
+<h2>Example Operation</h2>
+
+The virtual page table is very similar to what we have discussed in class,
+except that it does not have a reference or dirty bit for each page.
+The system supports a read bit (PROT_READ), a write bit (PROT_WRITE),
+and an execute bit (PROT_EXEC), which is enough to make it work.
+<p>
+<table>
+<tr><td>
+Let's work through an example, starting with the figure at the right.
+Suppose that we begin with nothing in physical memory.  If the application
+begins by trying to read page 2, this will result in a page fault.
+The page fault handler choose a free frame, say frame 3.  It then
+adjusts the page table to map page 2 to frame 3, with read permissions.
+Then, it loads page 2 from disk into page 3.  When the page fault handler
+completes, the read operation is re-attempted, and succeeds.
+<td><a href=vm2.gif><img border=0 src=vm2.small.jpg></a>
+<tr><td>
+The application continues to run, reading various pages.  Suppose that
+it reads pages 3, 5, 6, and 7, each of which result in a page fault,
+and must be loaded into memory as before.  Now physical memory
+is fully in use.
+<td>
+<a href=vm3.gif><img border=0 src=vm3.small.jpg></a>
+<tr><td>
+Now suppose that the application attempts to write to page 5.
+Because this page only has the R bit set, a page fault will result.
+The page fault handler looks at the current page bits, and upon
+seeing that it already has the PROT_READ bit set, adds the PROT_WRITE bit.
+The page fault handler returns, and the application can continue.
+Page 5, frame 1 is modified.
+<td>
+<a href=vm4.gif><img border=0 src=vm4.small.jpg></a>
+<tr><td>
+Now suppose that the application reads page 1.  Page 1 is not currently
+paged into physical memory.  The page fault handler must decide which frame
+to remove.  Suppose that it picks page 5, frame 0 at random.  Because page
+5 has the PROT_WRITE bit set, we know that it is dirty.  So, the page fault
+handler writes page 5 back to the disk, and reads page 1 in its place.
+Two entries in the page table are updated to reflect the new situation.
+<td>
+<a href=vm5.gif><img border=0 src=vm5.small.jpg></a>
+</table>
+
+
+<h2>Essential Requirements</h2>
+
+Your program must be invoked as follows:
+<pre>
+./virtmem npages nframes rand|fifo|custom scan|sort|focus
+</pre>
+
+<b>npages</b> is the number of pages and <b>nframes</b> is the number of frames to create in the system.  The third argument is the page replacement algorithm.  You must implement <b>rand</b> (random replacement), <b>fifo</b> (first-in-first-out), and <b>custom</b>, an algorithm of your own invention.  The final argument specifies which built-in program to run: <b>scan</b>, <b>sort</b>, or <b>focus</b>.  Each accesses memory using a slightly different pattern.
+<p>
+You may only modify the file <b>main.c</b>.  Your job is to implement three page replacement algorithms.  <b>rand</b> and <b>fifo</b> should be implemented as discussed in class.  You should invent a third algorithm, <b>custom</b> that does a better job than <b>rand</b> or <b>fifo</b>.  (Better means results in fewer disk reads and writes.)  I strongly encourage you to choose something <i>simple</i>.
+<p>
+A complete and correct program will run each of the sample programs to completion with only the following output:
+<dir>
+<li> The single line of output from <b>scan</b>, <b>sort</b>, or <b>focus</b>.
+<li> A summary of the number of page faults, disk reads, and disk writes over the course of the program.
+</dir>
+You may certainly add some <tt>printfs</tt> while testing and debugging your program,
+but the final version should not have any extraneous output.
+<p>
+You will also turn in a lab report that has the following elements:
+<dir>
+<li> In your own words, briefly explain the purpose of the experiments and the experimental setup.  Be sure  to clearly state on which machine you ran the experiments, and exactly what your command line arguments were, so that we can reproduce your work in case of any confusion.
+<li> Very carefully describe the custom page replacement algorithm that you have invented.  Make sure to give enough detail that someone else could reproduce your algorithm, even without your code.
+<li> Measure and graph the number of page faults, disk reads, and disk writes for each program and each page replacement algorithm using 100 pages and a varying number of frames between 1 and 100.  Spend some time to make sure that your graphs are nicely laid out, correctly labelled, and easy to read, as discussed in class.  Do not use colored backgrounds. You may connect data points with straight lines, but not with splines or curves.
+<li> Explain the nature of the results.  If one algorithm performs better than another under certain conditions, then point that out, explain the conditions, and explain <i>why</i> it performs better.
+</dir>
+
+<h2>Grading</h2>
+
+Your grade on this assignment will be based on the following:
+
+<dir>
+<li> Correct implementation of demand paging with any arbitrary access pattern and amount of virtual and physical memory.  (50%)
+<li> A lab report which is clearly written using correct English, contains an appropriate description of your experiments, contains correct results that are clearly presented, and draws appropriate conclusions. (30%) 
+<li> Thorough attention to and handling of all possible error conditions, including user error. (10%) 
+<li> Good coding style, including clear formatting, sensible variable names, and useful comments. (10%) 
+</dir>
+
+<h2>Turning In</h2>
+
+Turn in all of your source code and a Makefile that builds <tt>virtmem</tt> when the user types <tt>make</tt>.  Turn in a lab report named <tt>report.doc</tt> or <tt>report.pdf</tt> that clearly indicates the members of your group.
+Please do not turn in executables or other large files. All files should be copied to your dropbox directory here:
+<pre>
+/afs/nd.edu/coursesp.09/cse/cse30341.01/dropbox/YOURNAME/project5
+</pre>
+This assignment is due at 5PM on Wednesday, April 8th. Late assignments will not be accepted.   Your program will be compiled and graded on the Linux machines in the Fitzpatrick computer lab. Therefore, you should do your development work either sitting in that lab, or using ssh to connect to the machines remotely. The TAs will hold office hours in the lab, and will be happy to help you with those machines. 
+<p>
+If you insist on doing the homework on your personal computer or laptop, then you are on your own. Please do not ask the TAs to fiddle around with your personal computers. Leave extra time to ensure that your program works correctly when transferred to the Fitzpatrick machines. 
+<p>
+<hr>
+<center><i>This work by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Prof. Douglas Thain at the University of Notre Dame</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.</i></center>
+<hr> 
+

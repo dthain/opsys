@@ -1,0 +1,44 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<title>Project V Frequently Asked Questions</title>
+
+<h1>Project V Frequently Asked Questions</h1>
+
+<ol>
+<li> <b>When a page fault occurs, how can I tell if it is a read or a write?</b>
+<p>
+The page fault handler does not tell you directly.  What you need to do is look at the existing permissions on the page, and conclude that the fault is due to the missing permission.  If the page has no permissions, you should add the PROT_READ permissions and return.  If the page has PROT_READ, then you should add PROT_WRITE and continue.  (PROT_EXEC shouldn't happen in this assignment.)
+<p>
+<li> <b>How can we write or read to a disk that isn't within scope while only modifying main.c?</b>
+<p>
+Just make the "disk" object a global variable, and call disk_read and
+disk_write from the page replacement handler.
+<p>
+<li> <b>How can I tell if a given page is written on disk or in memory?</b>
+<p>
+Call page_table_get_entry(page,&frame,&bits).  If the given page has non-zero
+permission bits, then it resides in the indicated frame number.  If the
+permission bits are zero, then it is not in memory, and the frame number
+is irrelevant.
+<p>
+<li> <b>Am I responsible for keeping track of which frames are free?</b>
+<p>
+Yes, you should create a frame table that keeps track of the state of each frame.
+That will make it easy to find a free frame for replacement.
+<p>
+<li> <b>It looks like the programs are using <tt>rand</tt> and <tt>srand</tt> to generate random numbers.  Should I do the same in the page fault handler?</b>
+<p>
+No, if you use the same random number generator, it will throw off the reproducibility of the results.  Use <tt>lrand48()</tt> to generate random numbers for your page fault handler, and do <b>not</b> call <tt>srand</tt> or <tt>rand</tt> at all.
+<p>
+<li> <b>What should the contents of a page be when it is read in from disk in the first time?</b>
+<p>
+In a real operating system, the contents of a page should initially be all zeroes.  As it turns out, it does not matter for this project, since each program fills in each page with its own data before attempting to read it.
+<p>
+<li><b>I seem to get good results on scan and sort, but not on focus!</b>
+<p>
+There was a bug in the original version of focus: the total variable
+was not initialized to zero.  Download a new version of program.c,
+and all will be well.
+</ol>
+
+

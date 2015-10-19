@@ -1,0 +1,60 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<title>Project II Frequently Asked Questions</title>
+
+<h1>Project II Frequently Asked Questions</h1>
+
+<ol>
+<li> <b>Some of the system calls like <tt>strsignal</tt> are behaving very strangely!</b>
+<p>
+Make sure that you are compiling with all warnings enabled with the <b>-Wall</b> flag like this:
+<pre>
+gcc -Wall -g myshell.c -o myshell
+</pre>
+
+Most warnings should really be errors, and unfortunately, they are worded in a way that is technically precise, but often confusing.  Here are some common kinds of warnings:
+<pre>
+myshell.c:70: warning: implicit declaration of function `strsignal'
+</pre>
+The warning "implicit declaration" technically means that you are trying to use a function 
+that was never declared to the compiler, so it doesn't know how to invoke it.
+Practically speaking, it means that you are missing the proper <tt>#include</tt> directive.
+Look up the man page for the given function to figure out what <tt>#include</tt> to add to your program.
+<p>
+<pre>
+myshell.c:35: warning: format argument is not a pointer (arg 3)
+</pre>
+This argument means that you have a problem with a <tt>printf</tt> statement.
+The "format argument" is the string that contains the percent codes.
+Make sure that each of your percent codes match up with the rest of the arguments.
+<p>
+<pre>
+myshell.c:4: warning: control reaches end of non-void function
+</pre>
+This warning tells you that your function is lacking a <tt>return</tt> statement.  This is bad, because the function might return any arbitrary value, which is probably not what you want.  If you deliberately want a function that returns no value, declare it as a <tt>void</tt> function.
+<p>
+<li><b>Suppose that I start one process with the <tt>start</tt> command, and then another with the <tt>run</tt> command.  Which process should <tt>run</tt> wait for?</b>
+<p>
+The <b>run</b> command should only wait for the particular process that was just started.  The <tt>wait</tt> system call will not help you here, because it waits for any finished process.  Instead, use the <tt>waitpid</tt> system call, which can wait for one particular process.
+<p>
+<li> <b>It seems like a program named "start" gets run instead of my program.</b>
+<p>
+ You will need to do a little translation before passing the arguments to execvp.
+After using strtok to split up the line, you will have something like this:
+<pre>
+words[0] = "start"
+words[1] = "emacs"
+words[2] = "doc.txt"
+words[3] = 0;
+</pre>
+Now, inside of your shell, you will examine words[0] to figure out
+whether to do a start, a wait, or something else.  If you are doing a
+start, then, you need to assemble an array that looks like this:
+<pre>
+args[0] = "emacs"
+args[1] = "doc.txt"
+args[2] = 0;
+</pre>
+Then, you can simply call execvp(args[0],args);
+<p>
+</ol>

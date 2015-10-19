@@ -1,0 +1,145 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<title>Project VI: Disk Scheduling</title>
+<h1>Project VI: Disk Scheduling</h1>
+
+<dir>
+<li> <a href=faq.html>Frequently Asked Questions</a>
+</dir>
+
+The goals of this project are:
+<dir>
+<li> to learn the code mechanics of writing an operating system request scheduler.
+<li> to demonstrate mastery in solving concurrency problems. 
+<li> to gain further experience in quantitative system evaluation.
+<li> to gain further experience in writing short technical reports.
+</dir>
+<p>
+<b>This project may be completed in either pairs or singletons.
+Submit your project to only one dropbox, and clearly indicate
+in your lab report the members of your group.  Both members
+of the group will receive the same grade.</b>
+<p>
+
+<h2>Project Overview</h2>
+
+In this project, you will build a scheduling system for a hard disk.
+We will provide you with a virtual disk object that has some inconvenient
+features, and a simple program that makes requests from that disk.
+Your scheduler will sit between the two and provide both synchronization
+and improved performance via scheduling.
+<p>
+Once your system is working correctly, you will evaluate the performance of
+several disk scheduling algorithms with a varying number of programs running.
+You will write a short lab report that explains the experiments, describes your results,
+and draws conclusions about the behavior of each algorithm.
+
+<h2>Getting Started</h2>
+
+Begin by downloading the <a href=source>source code</a> and building it.
+Look through <tt>main.c</tt> and notice that the program creates a
+<tt>disk_scheduler</tt> object, multiple threads that run <tt>program_run</tt>,
+and then one thread that runs <tt>disk_scheduler_run</tt>.  The run is complete
+when all of the threads running <tt>program_run</tt> have completed.
+<p>
+The <tt>disk</tt> object in this project has the same interface as the last
+project, but the implementation has two of the inconvenient features of a real disk drive:
+<dir>
+<li> The disk can only support a single read or write at a time.  If multiple threads
+attempt to call <tt>disk_read</tt> or <tt>disk_write</tt>, the program will "crash"
+with a loud error message.
+<li> The disk takes time to respond to each request: each block is about a millisecond
+apart. So, reading block 0, then block 10, then block 20 will take 20 milliseconds.
+But, reading block 0, then 20, then 10 will take 30 milliseconds total.
+(This is slower than a real disk, which makes it easier to observe the effects of scheduling.)
+</dir>
+
+If we simply allowed each program to call <tt>disk_read</tt> and <tt>disk_write</tt>
+directly, then chaos would result.  Instead, each program will call <tt>disk_scheduler_read</tt>
+and <tt>disk_scheduler_write</tt>, which will work in concert with <tt>disk_scheduler_run</tt>
+to address the two problems of the disk.
+<p>
+As provided, the scheduler doesn't do any work at all, except to pass reads and writes
+directly on to the disk.  It works correctly with one thread:
+
+<pre>
+% ./disksched 2 10 fifo
+main: starting program threads
+main: starting disk scheduler thread
+read block 9 starting
+read block 9 done
+write block 4 starting
+write block 4 done
+...
+</pre>
+
+But it crashes with more than one:
+
+<pre>
+% ./disksched 2 10 fifo
+main: starting program threads
+main: starting disk scheduler thread
+read block 9 starting
+write block 4 starting
+DISK CRASH: two threads tried to use the disk at once!
+Abort
+</pre>
+
+Your job is to implement the disk scheduler.  The basic idea is that <tt>disk_scheduler_read</tt>
+and <tt>disk_scheduler_write</tt> should add a request object to an appropriate data structure.
+<tt>disk_scheduler_run</tt> should wait for request objects, and then pick the most appropriate
+one based on the desired scheduling algorithm, satisfy the request, and then wake up the waiting
+program.
+
+<h2>Essential Requirements</h2>
+
+Your program must be invoked as follows:
+
+<pre>
+% ./disksched &lt;nthreads&gt; &lt;nblocks&gt; fifo|sstf|scan
+</pre>
+
+<b>nthreads</b> is the number of threads that will access the disk, <b>nblocks</b> is the number of
+blocks in the virtual disk, and <b>fifo</b>, <b>sstf</b>, and <b>scan</b> indicate the scheduling
+algorithm to be used, as discussed in class.
+<p>
+You may only modify the file <b>disk_scheduler.c</b>.
+<p>
+A complete and correct program will run to completion with only the three lines
+of output from <b>main</b>.  You may certainly add some <tt>printfs</tt> while testing and debugging your program, but the final version should not have any extraneous output.  (Extra output
+will throw off the timing of your program.)
+<p>
+You will also turn in a lab report that has the following elements:
+<dir>
+<li> In your own words, briefly explain the purpose of the experiments and the experimental setup.  Be sure  to clearly state on which machine you ran the experiments, and exactly what your command line arguments were, so that we can reproduce your work in case of any confusion.
+<li> Measure and graph the execution time of <tt>disksched</tt> for each scheduling algorithm
+on disks of 10, 50, and 100 blocks for 1 to 10 threads executing at once.  Spend some time to make sure that your graphs are nicely laid out, correctly labelled, and easy to read, as discussed in class.  Do not use colored backgrounds. You may connect data points with straight lines, but not with splines or curves.
+<li> Explain the nature of the results.  If one algorithm performs better than another under certain conditions, then point that out, explain the conditions, and explain <i>why</i> it performs better.
+</dir>
+
+<h2>Grading</h2>
+
+Your grade on this assignment will be based on the following:
+
+<dir>
+<li> Correct implementation of disk scheduling including both synchronization for safety
+and selection of the proper request to proceed next. (50%)
+<li> A lab report which is clearly written using correct English, contains an appropriate description of your experiments, contains correct results that are clearly presented, and draws appropriate conclusions. (30%) 
+<li> Thorough attention to and handling of all possible error conditions, including user error. (10%) 
+<li> Good coding style, including clear formatting, sensible variable names, and useful comments. (10%) 
+</dir>
+
+<h2>Turning In</h2>
+
+Turn in all of your source code and a Makefile that builds <tt>disksched</tt> when the user types <tt>make</tt>.  Turn in a lab report named <tt>report.doc</tt> or <tt>report.pdf</tt> that clearly indicates the members of your group.
+Please do not turn in executables or other large files. All files should be copied to your dropbox directory here:
+<pre>
+/afs/nd.edu/coursesp.09/cse/cse30341.01/dropbox/YOURNAME/project6
+</pre>
+This assignment is due at 5PM on Thursday, April 30th. Late assignments will not be accepted.   Your program will be compiled and graded on the Linux machines in the Fitzpatrick computer lab. Therefore, you should do your development work either sitting in that lab, or using ssh to connect to the machines remotely. The TAs will hold office hours in the lab, and will be happy to help you with those machines. 
+<p>
+If you insist on doing the homework on your personal computer or laptop, then you are on your own. Please do not ask the TAs to fiddle around with your personal computers. Leave extra time to ensure that your program works correctly when transferred to the Fitzpatrick machines. 
+<p>
+<hr>
+<center><i>This work by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Prof. Douglas Thain at the University of Notre Dame</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.</i></center>
+<hr> 

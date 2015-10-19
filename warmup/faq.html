@@ -1,0 +1,24 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<title>Project 1 Frequently Asked Questions</title>
+
+<h1>Project 1 Frequently Asked Questions</h1>
+
+<ol>
+<li> <b>What should I use as the second argument to creat()?</b>
+<p>
+You should use the integer <b>0600</b>, which indicates that the
+file should be readable and writable by you.  Note that the leading
+zero is important; it indicates an octal integer.  (We will talk about this
+more in detail later on in the semester.)
+<p>
+<li> <b>I can copy a file, but then I get "Permission denied" when I try to read it.  What's going on?</b>
+<p>
+Most likely, you have the wrong argument to creat(), see question 1 for the solution.  To clean up the inaccessible file, run the following commands to change the permissions and then delete the file:
+<pre>
+chmod 0600 BrokenFile
+rm BrokenFile
+</pre>
+<p>
+
+</ol>

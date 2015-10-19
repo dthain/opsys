@@ -1,0 +1,237 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<h1>Project I: System Calls and Error Checking</h1>
+
+<dir>
+<li> <a href=faq.html>Frequently Asked Questions</a>
+</dir>
+
+This project is a warm up assignment for the course.
+The basic concept is very simple: to write a program
+that copies a file from one place to another.
+However, the main challenge of engineering operating systems
+is dealing with errors and unexpected conditions.
+Thus, the main focus of this assignment will be on the
+<b>correct handling of errors</b>.
+
+The goals of this project are:
+<dir>
+<li> To review your knowledge of basic C programming.
+<li> To learn the most essential Unix system calls.
+<li> To gain experience in rigorous error handling.
+</dir>
+
+<h2>Essential Requirements</h2>
+
+You will write a program called <tt>copyit</tt> which simply copies a file from one place to another.  The program will be invoked as follows:
+
+<pre>
+copyit SourceFile TargetFile
+</pre>
+
+<tt>copyit</tt> must create an exact copy of <tt>SourceFile</tt> under the new name <tt>TargetFile</tt>.  Upon successful completion, <tt>copyit</tt> should report the total number of bytes copied and exit with result zero.  For example:
+
+<pre>
+copyit: Copied 38475 bytes from file foobar to bizbaz.
+</pre>
+
+If the copy takes longer than one second, then every second the program will emit a short message:
+<pre>
+copyit: still copying...
+copyit: still copying...
+copyit: still copying...
+</pre>
+
+If <tt>copyit</tt> encounters eny kind of error or user mistake, it must immediately stop and emit a message that states the program name, the failing operation, and the reason for the failure, and then exit with result 1.  For example:
+<pre>
+copyit: Couldn't open file foobar: Permission Denied.
+copyit: Couldn't write to file bizbaz: Disk Full.
+</pre>
+<p>
+If the program is invoked incorrectly, then it should immediately exit with a helpful message:
+<pre>
+copyit: Too many arguments!
+usage: copyit &lt;sourcefile&gt; &lt;targetfile&gt;
+</pre>
+
+<h2>System Calls</h2>
+
+To carry out this assignment, you will need to learn about the following system calls:
+
+<pre>
+open, creat, read, write, close, strerror, errno, exit, signal, alarm
+</pre>
+
+Manual pages ("man pages") provide the complete reference documentation for system calls.  They are available on any Linux machine by typing <tt>man</tt> with the section number and topic name.  Section 1 is for programs, section 2 for system calls, section 3 for C library functions.  For example <tt>man 2 open</tt> gives you the man page for open.  You can also use this <a href=http://linux.die.net/man>online service</a> which has the same information.
+<p>
+As you probably already know, man pages are a little difficult to digest, because they give complete information about one call, but not how they all fit together.  However, with a little practice, you can become an expert with man pages.  Consider the man page for <tt>open</tt>.  At the top, it tells you what include files are needed in order to use <tt>open</tt>:
+<pre>
+#include &lt;sys/types.h&gt;
+#include &lt;sys/stat.h&gt;
+#include &lt;fcntl.h&gt;
+</pre>
+
+It also gives the the prototype for several variations of the system call:
+
+<pre>
+int open(const char *pathname, int flags);
+int open(const char *pathname, int flags, mode_t mode);
+int creat(const char *pathname, mode_t mode);
+</pre>
+
+The documentation contains many more details than you need, but it is usually a good bet to read the first paragraph, and then skim ahead until you find what you are looking for.  It is also always fruitful to read the RETURN VALUE section, and to use the SEE ALSO section to look up related system calls.
+<p>
+<tt>signal</tt> in particular is a little confusing, so it's easiest if I give an example.  <tt>signal</tt> tells the operating system that you want a particular function to be called whenever a signal arrives.  We are going to use the <tt>SIGALRM</tt> alarm signal to trigger the "still copying" message each second.  So, you need to write a short function that displays a message when the signal arrives:
+<pre>
+void display_message( int s )
+{
+	printf("copyit: still copying...\n");
+}
+</pre>
+Then, inside of <tt>main</tt>, use <tt>signal</tt> to connect the function to <tt>SIGALRM</tt>:
+<pre>
+#include &lt;signal.h&gt;
+signal(SIGALRM,display_message);
+</pre>
+Now, read the man page for <tt>alarm</tt>, which arranges for the signal to be delivered in a certain amount of time.  Note that you will need to call <tt>alarm</tt> more than once in your program...
+
+<h2>Handling Errors</h2>
+
+The basic outline of your program will look like this:
+
+<pre>
+open the source file
+create the target file
+loop {
+        read a bit of data from the source file
+        write a bit of data to the target file
+}
+close both files
+print success message
+</pre>
+
+In practice, it is going to be more complicated.
+<p>
+An operating system (and any program that deals with it) must be vigilant in dealing with errors and unexpected conditions.  End users constantly attempt operations that are illegal or make no sense.  Digital devices behave in unpredictable ways.  So, when you write operating system code, you must always check return codes and take an appropriate action on failure.
+<p>
+How do you know if a system call succeeded or failed?  In general read the RETURN VALUE section of the manual page, and it will tell you exactly how success or failure is indicated.  However, nearly all Unix system calls that <b>return an integer</b> (open, read, write, close, etc.) have the following convention:
+<dir>
+<li> If the call succeeded, it returns an integer greater than or equal to zero.
+<li> If the call failed, it returns an integer less than zero, and sets the global variable <tt>errno</tt> to reflect the reason for the error.
+</dir>
+And, nearly all C library calls that <b>return a pointer</b> (malloc, fopen, etc.) have a slightly different convention:
+<dir>
+<li> If the call succeeded, it returns a non-null pointer.
+<li> If the call failed, it returns null, and sets the global variable <tt>errno</tt> to reflect the reason for the error.
+</dir>
+
+The <tt>errno</tt> variable is simply an integer that explains the reason behind an errno.  Each integer value is given a macro name that makes it easy to remember, like <tt>EPERM</tt> for permission denied.  All of the error types are defined in the file <tt>/usr/include/asm/errno.h</tt>.  Here are a few of them:
+
+<pre>
+#define EPERM            1      /* Operation not permitted */
+#define ENOENT           2      /* No such file or directory */
+#define ESRCH            3      /* No such process */
+#define EINTR            4      /* Interrupted system call */
+...
+</pre>
+
+You can check for specific kinds of errors like this:
+
+<pre>
+fd = open(filename,O_RDONLY,0);
+if(fd<0) {
+	 if(errno==EPERM) {
+		printf("Error: Permission Denied\n");
+	} else {
+		printf("Some other error.\n");
+		...
+	}
+	exit(1);
+}
+</pre>
+
+This would get rather tedious with 129 different error messages.  Instead, use the <tt>strerror</tt> routine to convert <tt>errno</tt> into a string, and print out a descriptive message like this:
+
+<pre>
+fd = open(filename,O_RDONLY,0);
+if(fd<0) {
+	 printf("Unable to open %s: %s\n",filename,strerror(errno));
+	 exit(1);
+}
+</pre>
+
+With <tt>read</tt> and <tt>write</tt>, you must be especially careful.  If you request to read <tt>count</tt> bytes of data like this:
+
+<pre>
+int result = read(fd,buffer,count);
+</pre>
+
+There are several possible outcomes.  If <tt>read</tt> was able to access some data, it will return the number of bytes actually read.  The number <i>might</i> be as high as <tt>count</tt>, but it could also be smaller.  For example, if you request to read 4096 bytes, but there are only 40 bytes remaining in the file, <tt>read</tt> will return 40.  If there is nothing more left in the file, <tt>read</tt> will return zero.  If there is an error, the result will be less than zero, as above.  <tt>write</tt> operates in a very similar way.
+<p>
+There is still one more wrinkle.  If your read or write operation is interrupted by a signal (e.g. the "still copying" message), the operating system will abort it prematurely.  The call will return failure and set errno to <tt>EINTR</tt>, indicating that it was interrupted.  In this case, the call should simply be tried again without changing any thing.
+<p>
+So, your program should look like this overall:
+<pre>
+set up the periodic message
+
+open the source file or exit with an error
+create the target file or exit with an error
+
+loop over {
+     read a bit of data from the source file
+     if the read was interrupted, try it again
+     if there was an error reading, exit with an error
+     if no data left, end the loop
+
+     write a bit of data to the target file
+     if the write was interrupted, try it again
+     if not all the data was written, exit with an error
+}
+close both files
+print success message
+</pre>
+
+<h2>Testing</h2>
+<p>
+Make sure to test your program on a wide variety of conditions.
+Test small files and big files.  Make sure to copy a really big file
+to make sure that your "still copying" message works and the copy recovers
+correctly from <tt>EINTR</tt> errors.  How do you know if the file copy worked correctly?  Use the program <tt>md5sum</tt> to take the checksum of both files, and double check that it matches:
+<pre>
+% md5sum /tmp/SourceFile
+b92891465b9617ae76dfff2f1096fc97  /tmp/SourceFile
+% md5sum /tmp/TargetFile
+b92891465b9617ae76dfff2f1096fc97  /tmp/TargetFile
+</pre>
+
+
+<h2>Grading</h2>
+
+Your grade will be based on:
+<dir>
+<li> Correct functioning of the file copy.  (50%)
+<li> Correct handling of all error conditions. (40%)
+<li> Good coding style, including clear formatting, sensible variable names, and useful comments. (10%)
+</dir>
+
+<h2>Turning In</h2>
+
+Turn in a source file named <tt>copyit.c</tt> to your dropbox directory, which is:
+
+<pre>
+/afs/nd.edu/coursesp.09/cse/cse30341.01/dropbox/YOURNAME/project1
+</pre>
+
+<b>This assignment is due at 5PM on Friday, 23 January.  Late assignments will not be accepted.</b>
+<p>
+Your program will be compiled and graded on the Linux machines in the Fitzpatrick computer lab.  Therefore, you should do your development work either sitting in that lab, or using <tt>ssh</tt> to connect to the machines remotely.  The TAs will hold office hours in the lab, and will be happy to help you with those machines.
+<p>
+If you insist on doing the homework on your personal computer or laptop, then you are on your own.  Please do not ask the TAs to fiddle around with your personal computers.  Leave extra time to ensure that your program works correctly when transferred to the Fitzpatrick machines.
+
+<h2>Extra Credit</h2>
+
+For ten percent extra credit, write a second version of <tt>copyit</tt> that copies directories recursively.  Turn in this version as <tt>copyit_extracredit.c</tt>.
+
+<hr>
+<center><i>This work by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Prof. Douglas Thain at the University of Notre Dame</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.</i></center>
+<hr> 

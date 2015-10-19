@@ -1,0 +1,29 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<title>Project IV Frequently Asked Questions</title>
+
+<h1>Project IV Frequently Asked Questions</h1>
+
+<dir>
+<li> <b>I get strange results or segmentation faults when calling stat like this:</b>
+<pre>
+struct stat *buf;
+stat(filename,buf);
+</pre>
+<p>
+The code above is incorrect, because it declares an uninitialized pointer and passes it to the stat() function.  Instead, you should declare a buf object on the stack, and pass its address to stat() like this:
+<pre>
+struct stat buf;
+stat(filename,&buf);
+</pre>
+<p>
+<li><b>Everyone once in a while, the server crashes with signal SIGPIPE.  What should I do about this?</b>
+<p>
+This signal is thrown when a program attempts to write to a network connection,
+but the other side has already closed the connection.  We disabled this signal in the main thread, but it turns out that you need to do so explicitly in all threads.  So, we have made a simple fix to <tt>request.c</tt> to fix the problem by adding the following line:
+<pre>
+signal(SIGPIPE,SIG_IGN);
+</pre>
+If you download a new copy of <tt>request.c</tt>, then this problem should go away.
+<p>
+</dir>

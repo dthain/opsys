@@ -1,0 +1,11 @@
+pre {
+background: #ffffcc;
+font-family: monospace;
+font-size: 75%;
+text-align: left;
+white-space: pre;
+border: solid 1px black;
+padding: 5px;
+margin: 20px;
+width: 50%;
+}

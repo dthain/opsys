@@ -1,0 +1,260 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<h1>Project III: Parallel Mandelbrot</h2>
+
+<dir>
+<li> <a href=faq.html>Frequently Asked Questions</a>
+</dir>
+
+The goals of this project are:
+<dir>
+<li> To learn how to exploit coarse-grained parallelism with processes.
+<li> To learn how to exploit fine-grained parallelism with threads.
+<li> To gain experience evaluating parallel performance with both processes and threads.
+<li> To have a little fun with the Mandlebrot set.
+</dir>
+
+<h2>The Mandelbrot Set</h2>
+
+In order to study parallelism, we must have a problem
+that will take a significant amount of computation.
+For fun, we will generate images in the
+<a href=http://en.wikipedia.org/wiki/Mandelbrot_set>Mandelbrot set</a>,
+which is a well known fractal structure.  The set is interesting both mathematically
+and aesthetically because it has an infinitely recursive structure.  You can zoom into any part and 
+find swirls, spirals, snowflakes, and other fun structures, as long as you
+are willing to do enough computation.  For example, here are three images starting from the
+entire set and zooming in:
+<p>
+<center>
+<table>
+<tr>
+<td align=center><b>mandel<br>-x -0.5 -y 0 -s 2</b>
+<td align=center><b>mandel<br>-x -0.5 -y -0.5 -s 1</b>
+<td align=center><b>mandel<br>-x -0.5 -y -0.5 -s 0.25</b>
+<tr>
+<td>
+<a href=images/base.bmp><img src=images/smallbase.jpg></a>
+<td>
+<a href=images/spike.bmp><img src=images/smallspike.jpg></a>
+<td>
+<a href=images/spikezoom.bmp><img src=images/smallspikezoom.jpg></a>
+</table>
+</center>
+<p>
+
+<p>
+Here is the <a href=source>source code</a> for a simple program that generates images
+of the Mandelbrot set and saves them as BMP files.  Just download all of the
+files and run <tt>make</tt> to build the code.  If you run the program with no arguments,
+then it generates a default image and writes it to <tt>mandel.bmp</tt>.  Use <tt>display mandel.bmp</tt>
+to see the output.  You can see all of the command line options with <tt>mandel -h</tt>, and 
+use them to override the defaults.  (Each of the images on this page is labelled with the command that produces it.)
+This program uses the <i>escape time algorithm</i>.
+For each pixel in the image, it starts with the x and y position,
+and then computes a recurrence relation until it exceeds a fixed value
+or runs for <tt>max</tt> iterations.
+
+<center>
+<pre>
+int iterations_at_point( double x, double y, int max )
+{
+	double x0 = x;
+	double y0 = y;
+	int iter = 0;
+
+	while( (x*x + y*y <= 4) && iter < max ) {
+
+		double xt = x*x - y*y + x0;
+		double yt = 2*x*y + y0;
+
+		x = xt;
+		y = yt;
+
+		iter++;
+	}
+
+	return iter;
+}
+</pre>
+</center>
+<p>
+Then, the pixel is assigned a color according to the number of iterations completed.
+An easy color scheme is to assign a gray value proportional to the number of iterations, but others are possible.
+Here are a few color variations of the same configuration:
+<p>
+<center>
+<table>
+<tr>
+<td colspan=3 align=center><b>mandel -x -.38 -y -.665 -s .05 -m 1000</b>
+<tr>
+<td>
+<a href=images/color1.jpg><img src=images/smallcolor1.jpg></a>
+<td>
+<a href=images/color2.jpg><img src=images/smallcolor2.jpg></a>
+<td>
+<a href=images/color3.jpg><img src=images/smallcolor3.jpg></a>
+</table>
+</center>
+<p>
+The <tt>max</tt> value controls the amount of work done by the algorithm.
+If we increase <tt>max</tt>, then we can see much more detail in the set, but it may take much longer
+to compute.  Generally speaking, you need to turn the <tt>max</tt>
+value higher as you zoom in.  For example, here is the same area in the set computed
+with four different values of <tt>max</tt>:
+<p>
+<center>
+<table>
+<tr><td colspan=4 align=center><b>mandel -x 0.286932 -y 0.014287 -s .0005</b>
+<tr>
+<td>-m 50
+<td>-m 100
+<td>-m 500
+<td>-m 1000
+<tr>
+<td>
+<a href=images/iter50.jpg><img src=images/smalliter50.jpg></a>
+<td>
+<a href=images/iter100.jpg><img src=images/smalliter100.jpg></a>
+<td>
+<a href=images/iter500.jpg><img src=images/smalliter500.jpg></a>
+<td>
+<a href=images/iter1000.jpg><img src=images/smalliter1000.jpg></a>
+</table>
+</center>
+
+<h2>Parallel Programming</h2>
+
+Now, what does this all have to do with operating systems?  It's very simple: it can take a long time to compute a Mandelbrot image.  The larger the image, the closer it is to the origin, and the higher the <tt>max</tt> value, the longer it will take.  Suppose that you want to create a movie of high resolution Mandelbrot images, and it is going to take a long time.  Your job is to speed up the process by using multiple CPUs.  You will do this in two different ways: using multiple processes and using multiple threads.
+
+<h3>Step One: Find a Good Image</h3>
+
+Explore the Mandelbrot space a little bit, and find an interesting area.  The more you zoom in, the more interesting it gets, so try to get <tt>-s</tt> down to 0.0001 or smaller. Play around with <tt>-m</tt> to get the right amount of detail.  Find a configuration that takes about 5 seconds to generate.  If you find an image that you like, but it only takes a second or two to create, then increase the size of the image using <tt>-W</tt> and <tt>-H</tt>, which will definitely make it run longer.
+
+<h3>Step Two: Multiple Processes</h3>
+
+Now, write a new program <tt>mandelmovie</tt> that runs <tt>mandel</tt> 50 times, using what you learned in the previous project.
+Keep the <tt>-x</tt> and <tt>-y</tt> values the same as in your chosen image above,
+but allow <tt>-s</tt> to vary from an initial value of 2 all the way down to your target value.
+The end result should be 50 images named <tt>mandel1.bmp</tt>,
+<tt>mandel2.bmp</tt> and so forth.  For fun, you can stitch all of the images into a movie
+with a command like this: <tt>ffmpeg -i mandel%d.bmp mandel.mpg</tt>, and then play with with <tt>ffplay mandel.mpg</tt>. <a href=project3faq.html>(See FAQ #1)</a>  Here is an example of a large movie with 1000 frames:
+<p>
+<center>
+<a href=images/zoom.mpg><img src=images/zoom.bmp height=128></a>
+</center>
+<p>
+Obviously, generating all those frames will take some time.  We can speed up the process significantly
+by using multiple processes simultaneously.  To do this, make <tt>mandelmovie</tt> accept
+a single argument: the number of processes to run simultaneously.  So, <tt>mandelmovie 3</tt>
+should start three <tt>mandel</tt> processes at once, then wait for one to complete.  As soon
+as one completes, start the next, and keep going until all the work is complete. <tt>mandelmovie</tt>
+should work correctly for any arbitrary number of processes given on the command line.
+
+<h3>Step Three: Multiple Threads</h3>
+
+Instead of running multiple programs at once, we can take a different approach
+of making each individual process faster by using multiple threads.
+<p>
+Modify <tt>mandel.c</tt> to use an arbitrary number of threads to compute the image.
+Each thread should compute a completely separate band of the image.  For example,
+if you specify three threads and the image is 500 pixels high, then thread 0 should
+work on lines 0-165, thread 1 should work on lines 166-331, and thread 2 should
+work on lines 332-499.  Add a new command line argument <tt>-n</tt> to allow 
+the user to specify the number of threads.  If <tt>-n</tt> is not given, assume
+a default of one thread.  Your modified version of <tt>mandel</tt> should work correctly
+for any arbitrary number of threads and image configuration.
+<p>
+Note that each thread is going to work on a completely different subset
+of the data, so you do not have to worry about synchronization and race conditions.
+(That will be the next assignment.)
+<p>
+Double check that your modified <tt>mandel</tt> produces the same output as the original.
+<p>
+
+<h3>Step Four: Evaluation</h3>
+
+Write a short lab report that evaluates your two parallel versions:
+<dir>
+<li> In your own words, briefly explain the purpose of the experiments and the experimental setup.  Be sure to clearly state on which machine you ran the experiments, and exactly what your command line arguments were, so that we can reproduce your work in case of any confusion.
+<p>
+<li> Measure and graph the execution time of <tt>mandelmovie</tt> for each of 1, 2, 3, 4, 5, and 10 processes running simultaneously.  Because each of these will be fairly long running, it will be sufficient to measure each configuration only once.  Make sure that you write all of your output files somewhere in <tt>/tmp</tt> to avoid any timing problems with AFS.
+<p>
+<li> Explain the shape of the curve.  What is the optimal number of processes?  Why?  Is it possible to have too many processes?  Why?
+<p>
+<li> For the following two configurations, measure and graph the execution time of multithreaded <tt>mandel</tt> using 1, 2, 3, 4, 5, 10, 50, and 100 threads.  The execution time of these experiments may be upset by other things going on in the machine.  So, repeat each measurement five times, and use the fastest time achieved.
+<dir>
+<li> <b>A:</b> mandel -x -.5 -y .5 -s 1 -m 2000
+<li> <b>B:</b> mandel -x 0.2869325 -y 0.0142905 -s .000001 -W 1024 -H 1024 -m 1000
+</dir>
+<p>
+<li> Explain the shape of the two curves.  What is the optimal number of threads?  Why do curves A and B have a different shape?  (Hint: Modify your program to print a message when each thread starts and stops.)
+</dir>
+
+<h2>Hints</h2>
+
+<tt>mandelmovie</tt> is a simple loop, once you think it through.  Use an integer to keep track of the number of running processes.  If the number is too low, fork a new process; if it is too high, wait for something to exit.  Keep looping until done.
+<p>
+If your movie starts off zooming very slowly, and then accelerating to the end, try this:
+To get a nice smooth zoom from s=a to s=b, start with <tt>s=a</tt> and then multiply it each time
+by <tt>exp(log(b/a)/50)</tt>.
+<p>
+<tt>mandel.c</tt> uses the standard <tt>getopt</tt> routine to process command line arguments.  To add the <tt>-n</tt> argument, you will need to add <tt>n:</tt> to the third argument of <tt>getopt</tt>, add an additional case statement underneath, and update the help text.
+<p>
+Where <tt>main</tt> previously made one call to <tt>compute_image</tt>, you will need to modify it to create N threads with <tt>pthread_create</tt>, assign each to create one slice of the image, and then wait for each to complete with <tt>pthread_join</tt>.
+<p>
+<tt>pthread_create</tt> requires that each thread begin executing a function that only takes one pointer argument.  Unfortunately, <tt>compute_image</tt> takes a whole bunch of arguments.  What you will need to do is modify <tt>create_image</tt> from this:
+<pre>
+void compute_image( struct bitmap *b, double xmin, double xmax, double ymin, double ymax, double itermax );
+</pre>
+to this:
+<pre>
+void * compute_image( struct thread_args *args )
+</pre>
+
+where <tt>thread_args</tt> contains everything that you want to pass to <tt>compute_image</tt>.  Now, for each thread, allocate a <tt>thread_args</tt> structure and pass it as the fourth argument to <tt>pthread_create</tt>, which
+will turn around and pass it to <tt>compute_image</tt>.
+<p>
+Pthreads requires <tt>compute_image</tt> to return a <tt>void *</tt>, but since it doesn't actually need to return any data, just <tt>return 0;</tt> at the end of the function.
+
+<h2>Turning In</h2>
+
+Turn in all of your source code and a <tt>Makefile</tt> that builds both <tt>mandel</tt> and <tt>mandelmovie</tt> when the user types <tt>make</tt>.  Turn in your labreport in either DOC or PDF format as a file named <tt>report.doc</tt> or <tt>report.pdf</tt>.  All files should be copied to your dropbox directory here:
+<p>
+<pre>
+/afs/nd.edu/coursesp.09/cse/cse30341.01/dropbox/YOURNAME/project3
+</pre>
+<p>
+<b>This assignment is due at 5PM on <b>Monday, March 2nd</b>.  Late assignments will not be accepted.</b>
+<p>
+Your program will be compiled and graded on the Linux machines in the Fitzpatrick computer lab.  Therefore, you should do your development work either sitting in that lab, or using <tt>ssh</tt> to connect to the machines remotely.  The TAs will hold office hours in the lab, and will be happy to help you with those machines.
+<p>
+If you insist on doing the homework on your personal computer or laptop, then you are on your own.  Please do not ask the TAs to fiddle around with your personal computers.  Leave extra time to ensure that your program works correctly when transferred to the Fitzpatrick machines.
+
+<h2>Grading</h2>
+
+Your grade will be based on:
+<dir>
+<li> Good coding style, including clear formatting, sensible variable names, and useful comments. (10%) 
+<li> A correct implementation of multi-process Mandelbrot. (30%)
+<li> A correct implementation of multi-threaded Mandelbrot. (30%)
+<li> A lab report which is clearly written using correct English,
+contains an appropriate description of your experiments,
+7contains correct results that are clearly presented,
+and draws appropriate conclusions. (30%)
+</dir>
+
+<h2>Extra Credit</h2>
+
+For one percent extra credit, add a color scheme to <tt>mandel</tt>.  Turn in the most interesting or beautiful Mandelbrot image that you can make, at a resolution of 1024x1024 pixels.  Name this file <tt>extracredit.bmp</tt>
+<p>
+I will assemble a gallery of the submitted images, and the class will vote on the best one.  The winner will receive five percent extra credit.
+<p>
+For up to ten percent extra credit, construct an interactive Mandelbrot browser that allows the user to explore by pointing and clicking, instead of typing in numbers.  Use whatever language or toolkit you are most comfortable with.
+</dir>
+<p>
+If you attempt more than one extra credit, the maximum total is ten percent extra credit.
+<p>
+<hr>
+<center><i>This work by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Prof. Douglas Thain at the University of Notre Dame</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.</i></center>
+<hr> 

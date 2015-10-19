@@ -1,0 +1,265 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<title>Project IV: Thread Pool Web Server</title>
+
+<h1>Project IV: Thread Pool Web Server</h1>
+
+<dir>
+<li> <a href=faq.html>Frequently Asked Questions</a>
+</dir>
+
+The goals of this project are:
+
+<dir>
+<li> to understand the basic elements of the World Wide Web and its protocols.
+<li> to learn how real-world multi-threaded servers are built.
+<li> to apply scheduling algorithms to a working system.
+<li> develop your skills in programming C and pthreads.
+<li> gain experience in reading and modifying existing code.
+</dir>
+
+<h2>Introduction</h2>
+
+Network servers of various kinds are the most likely place where you will encounter 
+threads in real life.  Because an network server must handle activities of multiple 
+simultaneous users, it has many of the same structures and difficulties as an operating 
+system.  A good example of this is a web server, which must provide data access to many 
+web browsers and other programs at once.
+<p>
+Let's briefly review how the web works.  The web consists of servers and clients.  A web 
+server is a process that runs on a machine and makes data available to any client that may 
+call it up and ask for it.  A client that you are certainly familiar with is a web browser, but 
+there are many other kinds of clients that interact with servers in quieter ways.  For 
+example, the <tt>wget</tt> command line tool can be used to request files from a web server 
+without any of the graphical hoopla.
+<p>
+A file on a server is identified by a Uniform Resource Locator (URL)
+like <tt>http://www.cse.nd.edu:80/index.html</tt>, which means to use the <tt>http</tt>
+protocol to talk to the machine <tt>www.cse.nd.edu</tt> on port <tt>80</tt> to get
+the file named <tt>/index.html</tt>.
+<p>
+Most web applications use HTTP, the HyperText Transfer Protocol.  This began life as a 
+<a href=http://www.w3.org/Protocols/HTTP/AsImplemented.html>simple protocol</a>, but has become <a href=http://www.w3.org/Protocols/rfc2616/rfc2616.html>very complex</a> over the years.  The basic idea is this.  
+First, the client connects to the server on the TCP port given by the URL.  It then sends 
+an HTTP request stating what file it wishes to retrieve, along with the version of the 
+protocol that it understands.
+
+<pre>
+    GET /index.html HTTP/1.0
+</pre>
+
+The server examines this request, and then sends a response header:
+
+<pre>
+    HTTP/1.1 200 OK
+    Date: Tue, 11 Jan 2005 21:31:45 GMT
+    Server: Apache/1.3.27
+    Connection: close
+    Content-Type text/html
+</pre>
+
+...followed by the actual data of the file in question. If you are curious, you can speak to 
+web servers directly without an intervening browser by using the telnet tool.  Try this to 
+see the raw output of a web server: 
+
+<pre>
+    % telnet www.cse.nd.edu 80
+    GET /index.html HTTP/1.0
+    (type return one more time)
+</pre>
+
+<a href=single.gif ><img src=single.gif align=right width=240></a>
+Now that you know the basic underpinnings of the web, let's consider how one might 
+build a web server designed to handle many incoming users.  A good place to start is a 
+single-threaded web server, shown to the right.  (Click on the image to enlarge it.)
+In a single threaded web server, there is just one main loop.  It sets up a listening socket, 
+and then waits for incoming client connections.  Once connected, it reads the HTTP 
+request from the client and creates a "request" data structure that describes the caller and 
+the nature of the request.  Another routine services this request and sends back the HTTP 
+response to the client.  Once done, the main loop deletes the request and returns to 
+waiting for incoming clients.
+<p>
+A single threaded web server is not likely to scale up to many simultaneous clients very 
+well.  The routine to send the HTTP response could be delayed for any number of 
+reasons: the file system could be slow, the client could be unprepared to receive data, the 
+network could be interrupted, or perhaps the response is dynamic will take some time to 
+produce.  If this response is delayed, no other client will be able to obtain service until the 
+blockage is repaired.
+<p>
+<a href=multi.gif><img align=right src=multi.gif width=240></a>
+One response to this problem might be to create a new thread for every incoming 
+connection.  Such a multi-threaded web server is shown to the right.
+In a multi-threaded web server, the main loop listens for incoming client connections.  
+When it discovers one, it reads the HTTP request and creates a request structure.  It then 
+creates a new thread and passes it the request structure.  The new thread sends the HTTP 
+response, deletes the request structure, and exits.
+<p>
+The multi-threaded web server will certainly scale better than a singly-threaded web 
+server.  If any server thread is delayed for any of the reasons mentioned above, new 
+threads will still be created and the users will be happy.  However, this design still has 
+some problems.  For starters, most thread packages are limited to a fixed maximum 
+number of threads.  (303 threads on our machines)  If more clients than maximum threads 
+arrive, the server is in trouble.  Second, thread creation and deletion can be relatively 
+expensive operations that are unnecessarily repeated under high load.  Finally, a given 
+machine may achieve optimum performance for a certain number of threads, independent 
+of the number of actual clients.  If we could control the number of threads without regard 
+to the number of clients, the server can be tuned to maximum performance.
+<p>
+<a href=pool.gif><img src=pool.gif width=240 align=right></a>
+So, most real-world servers use a thread-pool approach, shown to the right.
+In the thread-pool approach, the main thread creates a fixed number of worker threads.  
+The main thread is still responsible for accepting connections.  As it does so, it creates 
+request objects and places them into a data structure such as a linked list or an array.
+ Each worker threads pulls requests out of the buffer according to some scheduling algorithm, and then produces the necessary 
+response.  Thus, the main thread can accept connections as long as memory is available, 
+while a fixed number of threads churn away at maximum efficiency.
+<p>
+For this project, you will take a single-threaded web server and convert it into a thread-
+pool web server.  As you probably have noticed, this is a real-life example of the producer-consumer
+problem, so you will need to use a monitor in order to protect the bounded buffer, making
+sure that each thread only proceeds when it is safe to do so.  And, you will continue to
+gain practice in reading, modifying, and writing systems-level C code.
+<p>
+Note that you <b>do not</b> write or modify any code that deals with sockets or the 
+HTTP protocol: this isn't a networking class.  Your job is to deal with the threading 
+aspects, leaving the WWW aspects to the existing code.
+<p>
+
+<h2>Getting Started</h2>
+
+Begin by downloading this <a href=source>source code</a> for a simple web server
+and the following <a href=webdocs.tar.gz>webdocs</a> package of files for testing.
+The provided code is a single-threaded web server.  Build it, and then simply
+run <tt>webserver</tt>, choosing any port number above 1024:
+
+<pre>
+./webserver 7090
+</pre>
+
+This simple web server will serve documents out of the <tt>webdocs</tt> directory,
+so make sure to download and unpack the <a href=webdocs.tar.gz>webdocs</a> package.
+Once it is running on the workstation, you can connect to it with a web browser
+by typing a URL like this:
+
+<pre>
+http://HOSTNAME:7090/index.html
+</pre>
+
+You should see some images of Notre Dame start displaying, albeit slowly.
+<p>
+The provided web server is deliberately imperfect in a few different ways.
+First, each request to the server has a 33% chance of being delayed by 5 seconds.
+This will make it much easier to see the effect of using threads on human time scales.
+Second, the web server will automatically shut down if it does not receive any requests
+after five minutes.  This automatic cleanup is in place to make sure that we don't
+end up with a lab full of idle web servers!  Finally, the web server deliberately
+disables caching, so that your browser is forced to load everything when you hit reload,
+making it easy to test the system.
+<p>
+To see the limitations of a single-threaded server first-hand, try the following.
+Open up two web browsers simultaneously.  Type the server URL into both, then hit
+return on one, then return on the other.  You will notice that only one can make
+progress at a time: whenever one gets stuck, the other must wait as well.
+
+<h2>Technical Requirements</h2>
+
+Your job is to convert the given single-threaded web server into a thread-pool web server 
+as described above.  The total number of threads and the scheduling algorithm must be
+given on the command line.  You should support a bounded buffer of up to ten requests.
+The main thread must block when the bounded buffer is full, and the worker threads must
+block if the bounded buffer is empty.  Because the bounded buffer will be accessed by
+many threads simultaneously, you must protect it with a monitor as discussed in class.
+<p>
+Your web server must accept arguments as follows:
+<pre>
+./webserver PORT NTHREADS MODE
+</pre>
+Where PORT is the HTTP port number, NTHREADS is the number of threads in the pool,
+and MODE is the scheduling mode, which may be one of the following:
+<dir>
+<li><b>FCFS</b> (First Come, First Served) Each request is taken out of the buffer in
+the same order that it was inserted.
+<li><b>SFF</b> (Shortest File First) The smallest file is always taken out of the bounded buffer first.
+</dir>
+<p>
+You must come up with a testing method that demonstrates that your scheduling 
+algorithms works correctly.  Think carefully about how the thread-pool server should 
+work and use some combination of <tt>printf</tt> in the server and creative use
+of the web browser to verify that your server works correctly.  Make sure to test
+with both few and many threads, and with multiple web browsers simultaneously.
+<p>
+To accomplish this project, you may add or modify any code you see fit in <tt>webserver.c</tt>.
+You may <b>not</b> modify any other source code files, with the exception that you may add
+items to <tt>struct request</tt> in <tt>request.h</tt> if necessary.
+
+<h2>Hints</h2>
+
+Use the <tt>stat</tt> system call to get information about files, including the file size.
+<p>
+Add a number of <tt>printfs</tt> to <tt>main</tt> to watch when clients connect to the server,
+when requests get created and serviced, and so on.  This can help to clarify in what order things happen.
+<p>
+Note that buffer_monitor should employ a monitor in order to synchronize the various threads. In POSIX threads, a monitor is constructed out of two separate data structures, a mutex (mutual exclusion) and a cond (condition variable). You can declare a mutex and condition variable globally like so: 
+
+<pre>
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t  cond  = PTHREAD_COND_INITIALIZER;
+</pre>
+
+The mutex can be locked and unlocked like so: 
+
+<pre>
+pthread_mutex_lock(&mutex);
+/* do something here */
+pthread_mutex_unlock(&mutex);
+</pre>
+
+In between the lock and unlock, you should use pthread_cond_wait and pthread_cond_broadcast wait on a condition variable or cause all others waiting on that variable to wake up like so: 
+
+<pre>
+pthread_mutex_lock(&mutex);
+while( It's Not Safe to Proceed ) {
+	pthread_cond_wait(&cond,&mutex);
+}
+/* wake everyone else up */
+pthread_cond_broadcast(&cond);
+pthread_mutex_unlock(&mutex);
+</pre>
+
+For a more thorough tutorial on mutexes and condition variables, try <a href=http://www.cs.cf.ac.uk/Dave/C/node31.html#SECTION003100000000000000000>this tutorial</a>.
+
+<h2>Grading</h2>
+
+<b>Note that busy waiting is not an acceptable solution to this assignment.  If your solution uses busy waiting, you will receive zero credit for the synchronization component.</b>
+<p>
+Your grade will be based on:
+<dir>
+<li> Correct synchronization, resulting a safe program free of deadlocks, race conditions, and busy waiting. (40%)
+<li> Correct implementation of each of the scheduling algorithms. (40%)
+<li> Thorough attention to and handling of all possible error conditions, including user error. (10%)
+<li> Good coding style, including clear formatting, sensible variable names, and useful comments. (10%)
+</dir>
+
+<h2>Turning In</h2>
+
+Turn in all of your source code and a Makefile that builds <tt>webserver</tt> when the user types <tt>make</tt>.
+Please do <b>not</b> turn in <tt>webdocs</tt> or other large files.
+All files should be copied to your dropbox directory here: 
+
+<pre>
+/afs/nd.edu/coursesp.09/cse/cse30341.01/dropbox/YOURNAME/project4
+</pre>
+
+This assignment is due at 5PM on Monday, March 22nd. Late assignments will not be accepted. 
+<p>
+Your program will be compiled and graded on the Linux machines in the Fitzpatrick computer lab. Therefore, you should do your development work either sitting in that lab, or using ssh to connect to the machines remotely. The TAs will hold office hours in the lab, and will be happy to help you with those machines. 
+<p>
+If you insist on doing the homework on your personal computer or laptop, then you are on your own. Please do not ask the TAs to fiddle around with your personal computers. Leave extra time to ensure that your program works correctly when transferred to the Fitzpatrick machines. 
+
+<h2>Extra Credit</h2>
+
+I haven't thought of an extra credit project yet!
+<p>
+<hr>
+<center><i>This work by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Prof. Douglas Thain at the University of Notre Dame</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.</i></center>
+<hr> 

@@ -1,0 +1,141 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<h1>Project II: Processes and the Shell</h1>
+
+<dir>
+<li> <a href=faq.html>Frequently Asked Questions</a>
+</dir>
+
+The goals of this project are:
+<dir>
+<li> To learn the relationship between the kernel, the shell, and user-level programs.
+<li> To learn how to employ the Unix process management system calls.
+<li> To gain more experience in rigorous error handling.
+</dir>
+
+<h2>Essential Requirements</h2>
+
+You will write a program called <tt>myshell</tt> which is capable of executing, managing, and monitoring user level programs.  This program will be similar in purpose and design to everyday shells like <b>bash</b> or <b>tcsh</b>, although the syntax will be slightly different.  <tt>myshell</tt> will be invoked without any arguments, and will support several different commands.
+<p>
+Your program should print out a prompt like <tt>myshell&gt;</tt> when it is ready to accept input.  It must read a line of input, accepting several possible commands.  The <b>start</b> command will start another program with command line arguments, print out the process number of the running program, and then accept another line of input.  For example:
+<pre>
+myshell> start emacs myfile.c
+myshell: process 346 started
+myshell> 
+</pre>
+The <b>wait</b> command takes no arguments, and causes the shell to wait until a process exits.  When this happens, indicate whether the exit was normal or abnormal, along with the exit code or signal number and name, respectively.  If there are no processes to wait for, print an appropriate message and then accept another line of input.  For example:
+<pre>
+myshell> wait
+myshell: process 346 exited normally with status 0
+
+myshell> wait
+myshell: process 347 exited abnormally with signal 11: Segmentation fault.
+
+myshell> wait
+myshell: no processes left
+</pre>
+The <b>run</b> command combines the behavior of <b>start</b> and <b>wait</b>.  <b>run</b> should start a program, possibly with command line arguments, wait for that particular process to finish, and print the exit status.  For example:
+<pre>
+myshell> run date
+Mon Jan 19 11:51:57 EST 2009
+myshell: process 348 exited normally with status 0
+</pre>
+The <b>kill</b>, <b>stop</b>, and <b>continue</b> commands take a process ID as an argument, and send the <tt>SIGKILL</tt>, <tt>SIGSTOP</tt>, and <tt>SIGCONT</tt> signals, respectively, to the indicated processes.  Note that a process that is killed still requires a <b>wait</b> in order to collect the exit status.  For example:
+
+<pre>
+myshell> kill 349
+myshell: process 349 killed
+
+myshell> wait
+myshell: process 349 exited abnormally with signal 9: Killed.
+
+myshell> stop 350
+myshell: process 350 stopped.
+
+myshell> continue 350
+myshell: process 350 continued
+</pre>
+
+After each command completes, your program must continue to print a prompt and accept another line of input.  The shell should exit with status zero if the command is <b>quit</b> or <b>exit</b> or the input reaches end-of-file.  If the user types a blank line, simply print another prompt and accept a new line of input.  If the user types any other command, the shell should print a reasonable error message:
+<pre>
+myshell> bargle ls -la
+myshell: unknown command: bargle
+</pre>
+<p>
+Your shell must accept inputs lines of up to <b>4096</b> characters, and must handle up to <b>100</b> distinct words on a line.
+
+<h2>Technical Hints</h2>
+
+You will need to read the manual pages for the following system and library calls at a minimum:
+
+<pre>
+fork, execvp, wait, waitpid, kill, exit, printf, fgets, strtok, strcmp, strsignal, atoi
+</pre>
+
+Use <tt>fgets</tt> to read one line of text after printing the prompt.  Note that if you <tt>printf</tt> a prompt that has no newline on the end, it will not immediately display.  Call <tt>fflush(stdout)</tt> to force the output.
+<p>
+Breaking the input line into separate word is a little tricky, but is only a few lines of code once you get it right.  Call <tt>strtok(line," \t\n")</tt> once to obtain the first word, and then <tt>strtok(0," \t\n")</tt> repeatedly to get the rest, until it returns null.  Declare an array of pointers <tt>char *words[100]</tt>, then, for each word found by <tt>strtok</tt>, save a pointer to the word in <tt>words[i]</tt>.  Keep track of the number of words as <tt>nwords</tt>, then set <tt>words[nwords] = 0;</tt> when you have found the last one.
+<p>
+Once you have broken the input line into <tt>words</tt>, you can check <tt>words[0]</tt> for the command name, use <tt>strcmp</tt> to check for string equality and <tt>atoi</tt> to convert a string to an integer.
+<p>
+Use <tt>fork</tt> and <tt>execvp</tt> as discussed in class to implement <b>start</b>.  Use <tt>wait</tt> to implement <b>wait</b>, <tt>waitpid</tt> to implement <b>run</b>, and <tt>kill</tt> to implement <b>kill</b>, <b>stop</b>, and <b>continue</b>.  Look up <tt>man 7 signal</tt> to get a list of signals and descriptions.
+<p>
+Make sure to stop if <tt>fgets</tt> returns null, indicating end-of-file.  This allows you to run <tt>myshell</tt> and read commands from a file.  For example, if you create <tt>myscript</tt> with the following contents:
+<pre>
+start ls
+wait
+start date
+wait
+</pre>
+Then, you can run the shell on that input like this:
+<pre>
+./myshell &lt; myscript
+</pre>
+
+<h2>Testing</h2>
+
+Make sure to test your program on a wide variety of conditions.
+Try running multiple programs simultaneously.  Create some simple programs
+that crash or exit with values other than zero, to make sure that <b>wait</b>
+and <b>run</b> report the correct exit status.
+Try running interactive program like <tt>emacs</tt>, and use <tt>stop</tt>,
+<tt>continue</tt>, and <tt>kill</tt> on it to see what happens.
+<p>
+<b>Make sure to carefully handle all possible error conditions.  Every system call can fail in a number of ways.  You must cleanly handle all possible errors with a reasonable error message, as discussed in Project I.  It is up to you to read the man pages carefully and learn what errors are possible.</b>
+
+<h2>Grading</h2>
+
+Your grade will be based on:
+<dir>
+<li> Correct functioning of the shell according to the specification.  (50%)
+<li> Correct handling of all possible error conditions. (40%)
+<li> Good coding style, including clear formatting, sensible variable names, and useful comments. (10%)
+</dir>
+
+<h2>Turning In</h2>
+
+Turn in a source file named <tt>myshell.c</tt> to your dropbox directory, which is:
+
+<pre>
+/afs/nd.edu/coursesp.09/cse/cse30341.01/dropbox/YOURNAME/project2
+</pre>
+
+<b>This assignment is due at 5PM on Friday, 6 February.  Late assignments will not be accepted.</b>
+<p>
+Your program will be compiled and graded on the Linux machines in the Fitzpatrick computer lab.  Therefore, you should do your development work either sitting in that lab, or using <tt>ssh</tt> to connect to the machines remotely.  The TAs will hold office hours in the lab, and will be happy to help you with those machines.
+<p>
+If you insist on doing the homework on your personal computer or laptop, then you are on your own.  Please do not ask the TAs to fiddle around with your personal computers.  Leave extra time to ensure that your program works correctly when transferred to the Fitzpatrick machines.
+
+<h2>Extra Credit</h2>
+
+For up to ten percent extra credit, write a second version of <tt>myshell</tt> that also implements redirection of standard input and output files.  That is, if the user enters:
+<pre>
+start sort &lt;infile &gt;outfile
+</pre>
+then <tt>sort</tt> will use <tt>infile</tt> as its standard input file and <tt>outfile</tt> as its standard input file.  Hint: after <tt>fork</tt>, but before <tt>exec</tt>, open the input and output files, and use <tt>dup2</tt> to move the opened file descriptors to positions zero and one.
+<p>
+Turn in this version as <tt>myshell_extracredit.c</tt>.
+<p>
+<hr>
+<center><i>This work by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Prof. Douglas Thain at the University of Notre Dame</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.</i></center>
+<hr> 

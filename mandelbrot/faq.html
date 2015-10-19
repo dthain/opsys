@@ -1,0 +1,45 @@
+<link rel="stylesheet" type="text/css" href="../style.css">
+
+<h1>Project 3 Frequently Asked Questions</h1>
+
+<dir>
+<li> <b>ffmpeg and ffplay don't seem to work in the Fitzpatrick lab.</b>
+<p>
+Oops, my mistake.  You can find those programs in <tt>/afs/nd.edu/user37/ccl/software/external/ffmpeg/bin</tt>.
+<p>
+<li> <b>How can I construct a string that contains a floating point number to use as the <tt>-s</tt> argument?</b>
+<p>
+Use the very handy function <tt>sprintf</tt>, which is like <tt>printf</tt>
+but puts the result in a string.  Then, re-use what you learned in the previous project to split the string into words.  For example, something like this:
+<pre>
+char command[256];
+char *words[100];
+
+sprintf(command,"./mandel -x -.5 -y .5 -m 2000 -s %lf",zoom);
+
+word[0] = strtok(command," ");
+
+while(1) {
+   ...
+}
+</pre>
+<p>
+<li> <b>When I <tt>ssh</tt> into the Fitzpatrick machines, I keep getting kicked off!  What should I do?</b>
+<p>
+As we discussed in class, the policy in the Fitzpatrick lab is to give
+first priority to people sitting at the workstations.  In order to
+get correct performance results on your code, you will need to actually
+go to the lab and sit down at a machine.
+<p>
+<li> <b>What's the grade breakdown for this assignment?</b>
+<p>
+Oops, I left that out the first time.
+I have added the grade breakdown to the end of the assignment.
+<p>
+<li> <b>I get linking errors when I try to use <tt>exp</tt> and <tt>log</tt>!</b>
+<p>
+These are in the math library, so you need to include <tt>math.h</tt> and add the argument <tt>-lm</tt> to your link line.
+<p>
+</dir>
+
+
