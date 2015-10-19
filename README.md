@@ -14,7 +14,7 @@ In order of difficulty, they are:
 - disk-scheduler - Construct a concurrent disk scheduler that handles multiple threads.
 - virtual-memory - Construct a user-level demand-paged memory and evaluate its performance.
 
-This work by Prof. Douglas Thain at the University of Notre dame is licensed under a Created Commons Attribution 4.0 International License.
+This work by Prof. Douglas Thain at the University of Notre dame is licensed under a Creative Commons Attribution 4.0 International License.
 
 That means you are welcome to use or adapt these assignments and codes for your
 own purposes, as long as you give proper credit.
